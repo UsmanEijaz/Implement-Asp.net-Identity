@@ -9,6 +9,6 @@ namespace User_Management.Controllers
     public class EmployeeController : ControllerBase
     {
         [HttpGet]
-        public IActionResult Get() => Ok(new { Message= "protected end point"});
+        public IActionResult Get() => Ok(new { Message = "protected end point" });
     }
 }
