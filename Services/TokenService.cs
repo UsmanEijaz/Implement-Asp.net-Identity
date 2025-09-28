@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.Contracts;
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
@@ -13,11 +12,12 @@ namespace User_Management.Constant
     {
         public async Task<TokenResponseModel> GenerateTokens(IdentityUser user, IConfiguration config, ApplicationDbContext db)
         {
+            var tokenGuid = Guid.NewGuid().ToString();
             var claims = new List<Claim> 
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Name, user.UserName),
-                new Claim(JwtRegisteredClaimNames.Jti,Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti,tokenGuid)
             };
 
             var authSiginingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]));
@@ -25,7 +25,7 @@ namespace User_Management.Constant
             var token = new JwtSecurityToken(
                 issuer: config["Jwt:Issuer"],
                 audience: config["Jwt:Audience"],
-                expires: DateTime.UtcNow.AddMinutes(15),
+                expires: DateTime.Now.AddMinutes(15),
                 claims: claims,
                 signingCredentials: new SigningCredentials(authSiginingKey,SecurityAlgorithms.HmacSha256)
                 );
@@ -34,9 +34,9 @@ namespace User_Management.Constant
 
             var refreshToken = new RefreshToken 
             {
-                Token = Guid.NewGuid().ToString(),
+                Token = tokenGuid,
                 UserId = user.Id,
-                ExpiryDate = DateTime.UtcNow.AddDays(7)
+                ExpiryDate = DateTime.Now.AddDays(7)
             };
 
             db.RefreshTokens.Add(refreshToken);

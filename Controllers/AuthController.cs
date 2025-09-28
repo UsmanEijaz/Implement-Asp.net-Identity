@@ -1,12 +1,5 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 using User_Management.Constant;
 using User_Management.Model;
 using User_Management.ViewModel;
@@ -34,85 +27,113 @@ namespace User_Management.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> RegisterUser([FromBody] RegisterModel model)
         {
-            var isExist = await _userManager.FindByEmailAsync(model.Email);
-            if (isExist == null)
+            try
             {
-                IdentityUser user = new();
-                user.Email = model.Email;
-                user.UserName = model.Username;
-                user.SecurityStamp = Guid.NewGuid().ToString();
+                var isExist = await _userManager.FindByEmailAsync(model.Email);
+                if (isExist == null)
+                {
+                    IdentityUser user = new();
+                    user.Email = model.Email;
+                    user.UserName = model.Username;
+                    user.SecurityStamp = Guid.NewGuid().ToString();
 
-                //var roleExist = await _roleManager.RoleExistsAsync(signup.Role);
-                //if (roleExist)
-                //{
+                    //var roleExist = await _roleManager.RoleExistsAsync(signup.Role);
+                    //if (roleExist)
+                    //{
                     var result = await _userManager.CreateAsync(user, model.Password);
                     if (result.Succeeded)
                     {
                         //await _userManager.AddToRoleAsync(user, signup.Role);
                         return StatusCode(StatusCodes.Status200OK,
-                        new ResponseModel { status = "Error", message = "user added successfully" });
+                        new ResponseModel { status = "200", message = "user added successfully" });
                     }
                     else
                         return StatusCode(StatusCodes.Status404NotFound,
                         new ResponseModel { status = "Error", message = "failed to create user" });
-                //}
-                //else
-                //    return StatusCode(StatusCodes.Status404NotFound,
-                //   new Response { status = "Error", message = "role not found" });
+                    //}
+                    //else
+                    //    return StatusCode(StatusCodes.Status404NotFound,
+                    //   new Response { status = "Error", message = "role not found" });
+                }
+                else
+                    return StatusCode(StatusCodes.Status302Found,
+                        new ResponseModel { status = "Error", message = "user already exist" });
             }
-            else
-                return StatusCode(StatusCodes.Status302Found,
-                    new ResponseModel { status = "Error", message = "user already exist" });
+            catch (Exception ex) 
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, new ResponseModel { status = "Error", message = ex.Message });
+            }
+   
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginModel model)
         {
-            var result = await _userManager.FindByEmailAsync(model.Email);
-            if(result != null && await _userManager.CheckPasswordAsync(result, model.Password))
+            try
             {
-                TokenService tokenService = new TokenService();
-                var tokenResponse = await tokenService.GenerateTokens(result, _configuration, _context);
-                return StatusCode(StatusCodes.Status200OK,
-                        new LoginResponseModel { status = "Error", message = "Login Successfully", obj = tokenResponse });
+                var result = await _userManager.FindByEmailAsync(model.Email);
+                if (result != null && await _userManager.CheckPasswordAsync(result, model.Password))
+                {
+                    TokenService tokenService = new TokenService();
+                    var tokenResponse = await tokenService.GenerateTokens(result, _configuration, _context);
+                    return StatusCode(StatusCodes.Status200OK,
+                            new LoginResponseModel { status = "200", message = "Login Successfully", obj = tokenResponse });
+                }
+                else
+                    return StatusCode(StatusCodes.Status302Found,
+                       new ResponseModel { status = "Error", message = "user not found" });
             }
-            else 
-                return StatusCode(StatusCodes.Status302Found,
-                   new ResponseModel { status = "Error", message = "user not found" });
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, new ResponseModel { status = "Error", message = ex.Message });
+            }
         }
 
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
         {
-            var storedToken  = _context.RefreshTokens.FirstOrDefault(x=>x.Token == refreshToken && !x.IsRevoked);
+            try
+            {
+                var storedToken = _context.RefreshTokens.FirstOrDefault(x => x.Token == refreshToken && !x.IsRevoked);
+                if (storedToken == null || storedToken.IsRevoked || storedToken.ExpiryDate < DateTime.UtcNow)
+                    return Unauthorized(new { Message = "Invalid or expired refresh token" });
 
-            if(storedToken == null || storedToken.ExpiryDate < DateTime.UtcNow) 
-                return Unauthorized( new { Message = "Invalid or expired refresh token"});
+                var user = await _userManager.FindByIdAsync(storedToken.UserId);
+                if (user == null) return Unauthorized();
 
-            var user = await _userManager.FindByIdAsync(storedToken.UserId);
-            if (user == null) return Unauthorized();
-            
-            storedToken.IsRevoked = true;
-            await _context.SaveChangesAsync();
+                storedToken.IsRevoked = true;
+                await _context.SaveChangesAsync();
 
-            TokenService tokenService = new TokenService();
-            var newTokens= await tokenService.GenerateTokens(user, _configuration, _context);
-            return Ok(newTokens);
+                TokenService tokenService = new TokenService();
+                var newTokens = await tokenService.GenerateTokens(user, _configuration, _context);
+                return Ok(newTokens);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, new ResponseModel { status = "Error", message = ex.Message });
+            }
 
         }
 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] string refreshToken)
         {
-            var storedToken = _context.RefreshTokens.FirstOrDefault(x => x.Token == refreshToken);
-            if (storedToken !=null)
+            try
             {
-                storedToken.IsRevoked = true;
-                await _context.SaveChangesAsync();
-                return Ok(new { Message = "Logged out successfully" });
+                var storedToken = _context.RefreshTokens.FirstOrDefault(x => x.Token == refreshToken);
+                if (storedToken != null)
+                {
+                    storedToken.IsRevoked = true;
+                    await _context.SaveChangesAsync();
+                    return Ok(new { Message = "Logged out successfully" });
+                }
+                else
+                    return Unauthorized(new { Message = "Refresh token not found" });
             }
-            else
-                return Unauthorized(new { Message = "Unauthorized" });
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, new ResponseModel { status = "Error", message = ex.Message });
+            }
         }
     }
 }

@@ -21,11 +21,11 @@ namespace User_Management.Model
             //SeedRole(builder);
         }
 
-        //private void SeedRole(ModelBuilder modelBuilder) 
+        //private void SeedRole(ModelBuilder modelBuilder)
         //{
         //    modelBuilder.Entity<IdentityRole>().HasData(
-        //        new IdentityRole() { Id = Guid.NewGuid().ToString(), Name = "Admin", ConcurrencyStamp="1" , NormalizedName ="Admin"},
-        //        new IdentityRole() { Id = Guid.NewGuid().ToString(), Name = "User", ConcurrencyStamp="2", NormalizedName = "User"},
+        //        new IdentityRole() { Id = Guid.NewGuid().ToString(), Name = "Admin", ConcurrencyStamp = "1", NormalizedName = "Admin" },
+        //        new IdentityRole() { Id = Guid.NewGuid().ToString(), Name = "User", ConcurrencyStamp = "2", NormalizedName = "User" },
         //        new IdentityRole() { Id = Guid.NewGuid().ToString(), Name = "HR", ConcurrencyStamp = "3", NormalizedName = "HR" }
         //        );
         //}
